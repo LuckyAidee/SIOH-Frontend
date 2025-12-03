@@ -1,6 +1,6 @@
 // Pantalla de Mi Perfil
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,14 @@ export default function ProfileScreen() {
   const [carrera, setCarrera] = useState<CarreraId | null>(user?.carrera || null);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Redirigir si no hay usuario (usar useEffect para evitar error de setState durante render)
+  useEffect(() => {
+    if (!user) {
+      router.replace('/login' as never);
+    }
+  }, [user]);
+
   if (!user) {
-    router.replace('/login' as never);
     return null;
   }
 
