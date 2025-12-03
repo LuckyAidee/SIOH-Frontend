@@ -23,24 +23,19 @@ export const GrupoSelector: React.FC<GrupoSelectorProps> = ({
     `${s.dia.substring(0, 3)} ${minutosAHora(s.horaInicio)}-${minutosAHora(s.horaFin)}`
   ).join(' | ');
 
+  // Obtener salones únicos con edificio
+  const salones = [...new Set(grupo.sesiones.map(s => `Edif. ${s.edificio}, ${s.salon}`))];
+
   return (
     <View style={[styles.container, fijado && styles.containerFijado]}>
       <View style={styles.contenido}>
         <View style={styles.header}>
           <Text style={styles.numero}>Grupo {grupo.numero}</Text>
-          <View style={[
-            styles.cupoBadge,
-            grupo.cupoDisponible < 5 && styles.cupoBajoBadge
-          ]}>
-            <Text style={styles.cupoTexto}>
-              {grupo.cupoDisponible} cupos
-            </Text>
-          </View>
         </View>
 
         <View style={styles.profesorRow}>
           <Ionicons name="person-outline" size={14} color={Colors.light.textSecondary} />
-          <Text style={styles.profesor}>{grupo.profesor}</Text>
+          <Text style={styles.profesor} numberOfLines={1}>{grupo.profesor}</Text>
         </View>
 
         <View style={styles.horarioRow}>
@@ -51,8 +46,8 @@ export const GrupoSelector: React.FC<GrupoSelectorProps> = ({
         {/* Mostrar salones */}
         <View style={styles.salonesRow}>
           <Ionicons name="location-outline" size={14} color={Colors.light.textSecondary} />
-          <Text style={styles.salones}>
-            {[...new Set(grupo.sesiones.map(s => s.salon))].join(', ')}
+          <Text style={styles.salones} numberOfLines={1}>
+            {salones.join(' • ')}
           </Text>
         </View>
       </View>
@@ -102,20 +97,6 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginRight: 8,
   },
-  cupoBadge: {
-    backgroundColor: Colors.light.secondary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  cupoBajoBadge: {
-    backgroundColor: Colors.light.error,
-  },
-  cupoTexto: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFF',
-  },
   profesorRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -125,6 +106,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.light.textSecondary,
     marginLeft: 4,
+    flex: 1,
   },
   horarioRow: {
     flexDirection: 'row',
@@ -145,6 +127,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.textSecondary,
     marginLeft: 4,
+    flex: 1,
   },
   fijarBtn: {
     justifyContent: 'center',

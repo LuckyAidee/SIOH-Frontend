@@ -3,8 +3,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Materia, Grupo } from '../types';
-import { MATERIAS_MOCK, GRUPOS_MOCK } from '../data/mockData';
+import { Materia, Grupo, CarreraId, Turno, Semestre } from '../types';
+import { 
+  obtenerMateriasDisponibles, 
+  obtenerMateriasDisponiblesMultiTurno,
+  obtenerGruposDeMateria,
+  obtenerTodosLosGrupos,
+  obtenerTodosLosGruposMultiTurno,
+} from '../data/horariosParser';
 
 interface MateriasState {
   // Datos
@@ -16,13 +22,15 @@ interface MateriasState {
   gruposFijadosIds: string[];
   
   // Acciones
-  cargarMaterias: () => void;
+  cargarMaterias: (carrera: CarreraId, turno: Turno, semestres: Semestre[]) => void;
+  cargarMateriasMultiTurno: (carrera: CarreraId, turnos: Turno[], semestres: Semestre[]) => void;
   seleccionarMateria: (materiaId: string) => void;
   deseleccionarMateria: (materiaId: string) => void;
   toggleMateria: (materiaId: string) => void;
   fijarGrupo: (grupoId: string) => void;
   desfijarGrupo: (grupoId: string) => void;
   limpiarSeleccion: () => void;
+  limpiarTodo: () => void;
   
   // Getters
   obtenerMateriasSeleccionadas: () => Materia[];
@@ -41,11 +49,30 @@ export const useMateriasStore = create<MateriasState>()(
       materiasSeleccionadasIds: [],
       gruposFijadosIds: [],
       
-      // Cargar datos mock
-      cargarMaterias: () => {
+      // Cargar datos reales según configuración
+      cargarMaterias: (carrera, turno, semestres) => {
+        const materias = obtenerMateriasDisponibles(carrera, turno, semestres);
+        const gruposPorMateria = obtenerTodosLosGrupos(carrera, turno, semestres);
+        
         set({
-          materias: MATERIAS_MOCK,
-          gruposPorMateria: GRUPOS_MOCK,
+          materias,
+          gruposPorMateria,
+          // Limpiar selección anterior al cambiar configuración
+          materiasSeleccionadasIds: [],
+          gruposFijadosIds: [],
+        });
+      },
+      
+      // Cargar materias de múltiples turnos
+      cargarMateriasMultiTurno: (carrera, turnos, semestres) => {
+        const materias = obtenerMateriasDisponiblesMultiTurno(carrera, turnos, semestres);
+        const gruposPorMateria = obtenerTodosLosGruposMultiTurno(carrera, turnos, semestres);
+        
+        set({
+          materias,
+          gruposPorMateria,
+          materiasSeleccionadasIds: [],
+          gruposFijadosIds: [],
         });
       },
       
@@ -101,9 +128,19 @@ export const useMateriasStore = create<MateriasState>()(
         });
       },
       
-      // Limpiar toda la selección
+      // Limpiar toda la selección (mantiene materias cargadas)
       limpiarSeleccion: () => {
         set({
+          materiasSeleccionadasIds: [],
+          gruposFijadosIds: [],
+        });
+      },
+      
+      // Limpiar todo (materias y selección)
+      limpiarTodo: () => {
+        set({
+          materias: [],
+          gruposPorMateria: {},
           materiasSeleccionadasIds: [],
           gruposFijadosIds: [],
         });

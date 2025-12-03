@@ -66,7 +66,16 @@ export default function DetalleHorarioScreen() {
 
   const handleGuardar = () => {
     guardarHorario(horario);
-    Alert.alert('¡Guardado!', 'El horario se ha guardado correctamente');
+    Alert.alert(
+      '¡Guardado!',
+      'El horario se ha guardado correctamente',
+      [
+        {
+          text: 'Ir al Inicio',
+          onPress: () => router.replace('/'),
+        },
+      ]
+    );
   };
 
   const handleEliminar = () => {
@@ -79,8 +88,12 @@ export default function DetalleHorarioScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            eliminarHorario(horario.id);
-            router.back();
+            // Navegar primero para evitar crash por referencia nula
+            router.replace('/horarios');
+            // Eliminar después con pequeño delay
+            setTimeout(() => {
+              eliminarHorario(horario.id);
+            }, 100);
           },
         },
       ]
@@ -90,8 +103,12 @@ export default function DetalleHorarioScreen() {
   // Obtener nombre de materia del grupo
   const obtenerNombreMateria = (grupoId: string) => {
     const grupo = horario.grupos.find(g => g.id === grupoId);
-    // Por ahora retornar el ID simplificado
-    return grupo ? `Materia ${grupo.materiaId}` : 'Desconocida';
+    return grupo?.materiaNombre || 'Desconocida';
+  };
+
+  // Obtener grupo por sesión
+  const obtenerGrupoPorSesion = (grupoId: string) => {
+    return horario.grupos.find(g => g.id === grupoId);
   };
 
   return (
@@ -165,10 +182,6 @@ export default function DetalleHorarioScreen() {
               <View style={styles.grupoInfo}>
                 <Text style={styles.grupoNumero}>Grupo {grupo.numero}</Text>
                 <Text style={styles.grupoProfesor}>{grupo.profesor}</Text>
-              </View>
-              <View style={styles.grupoCupo}>
-                <Text style={styles.cupoNumero}>{grupo.cupoDisponible}</Text>
-                <Text style={styles.cupoLabel}>cupos</Text>
               </View>
             </View>
           ))}

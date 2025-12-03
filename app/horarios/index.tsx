@@ -26,6 +26,7 @@ export default function HorariosScreen() {
     horariosGuardados,
     guardarHorario,
     setHorarioActual,
+    limpiarGenerados,
   } = useHorariosStore();
 
   const horariosActuales = tabActivo === 'generados' ? horariosGenerados : horariosGuardados;
@@ -117,10 +118,16 @@ export default function HorariosScreen() {
       {/* Info */}
       {tabActivo === 'generados' && horariosGenerados.length > 0 && (
         <View style={styles.infoBar}>
-          <Ionicons name="information-circle-outline" size={16} color={Colors.light.info} />
-          <Text style={styles.infoText}>
-            Ordenados por puntuación (mejor primero)
-          </Text>
+          <View style={styles.infoLeft}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.light.info} />
+            <Text style={styles.infoText}>
+              Ordenados por puntuacion
+            </Text>
+          </View>
+          <TouchableOpacity onPress={limpiarGenerados} style={styles.limpiarBtn}>
+            <Ionicons name="trash-outline" size={16} color={Colors.light.error} />
+            <Text style={styles.limpiarText}>Limpiar</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -179,14 +186,33 @@ const styles = StyleSheet.create({
   infoBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#EFF6FF',
+  },
+  infoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   infoText: {
     fontSize: 13,
     color: Colors.light.info,
+  },
+  limpiarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+  },
+  limpiarText: {
+    fontSize: 12,
+    color: Colors.light.error,
+    fontWeight: '500',
   },
   lista: {
     padding: 16,

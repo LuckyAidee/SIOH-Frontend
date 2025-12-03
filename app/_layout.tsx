@@ -1,13 +1,14 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { useMateriasStore } from '@/src/stores/useMateriasStore';
+import { useAuthStore } from '@/src/stores/useAuthStore';
+import { useHorariosStore } from '@/src/stores/useHorariosStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,8 +28,6 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  const cargarMaterias = useMateriasStore((state) => state.cargarMaterias);
-
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
@@ -36,8 +35,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      // Cargar datos mock al iniciar
-      cargarMaterias();
       SplashScreen.hideAsync();
     }
   }, [loaded]);
@@ -51,10 +48,44 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated } = useAuthStore();
+  const { limpiarTodo: limpiarHorarios } = useHorariosStore();
+  const segments = useSegments();
+  const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    if (!navigationState?.key) return;
+
+    const firstSegment = segments[0] as string;
+    const inAuthGroup = firstSegment === 'login' || firstSegment === 'register';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      // Si no está autenticado y no está en login/register, limpiar datos previos y redirigir
+      limpiarHorarios();
+      router.replace('/login' as never);
+    } else if (isAuthenticated && inAuthGroup) {
+      // Si está autenticado y está en login/register, redirigir al home
+      router.replace('/');
+    }
+  }, [isAuthenticated, segments, navigationState?.key]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
+        <Stack.Screen 
+          name="login" 
+          options={{ 
+            title: 'Iniciar Sesión',
+            headerShown: false,
+          }} 
+        />
+        <Stack.Screen 
+          name="register" 
+          options={{ 
+            title: 'Registro',
+            headerShown: false,
+          }} 
+        />
         <Stack.Screen 
           name="index" 
           options={{ 
@@ -63,10 +94,24 @@ function RootLayoutNav() {
           }} 
         />
         <Stack.Screen 
+          name="profile" 
+          options={{ 
+            title: 'Mi Perfil',
+            headerShown: false,
+          }} 
+        />
+        <Stack.Screen 
+          name="config" 
+          options={{ 
+            title: 'Configuración',
+            headerBackTitle: 'Inicio',
+          }} 
+        />
+        <Stack.Screen 
           name="select-materias" 
           options={{ 
             title: 'Seleccionar Materias',
-            headerBackTitle: 'Inicio',
+            headerBackTitle: 'Config',
           }} 
         />
         <Stack.Screen 

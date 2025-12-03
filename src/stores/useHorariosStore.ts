@@ -23,6 +23,7 @@ interface HorariosState {
   setHorarioActual: (horario: Horario | null) => void;
   setIsGenerando: (value: boolean) => void;
   limpiarGenerados: () => void;
+  limpiarTodo: () => void;
   
   // Getters
   obtenerHorarioPorId: (id: string) => Horario | undefined;
@@ -86,6 +87,15 @@ export const useHorariosStore = create<HorariosState>()(
       // Limpiar horarios generados
       limpiarGenerados: () => {
         set({ horariosGenerados: [], horarioActual: null });
+      },
+      
+      // Limpiar todos los horarios (generados y guardados)
+      limpiarTodo: () => {
+        set({ 
+          horariosGenerados: [], 
+          horariosGuardados: [],
+          horarioActual: null 
+        });
       },
       
       // Obtener horario por ID (busca en generados y guardados)

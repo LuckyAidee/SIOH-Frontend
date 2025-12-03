@@ -89,10 +89,44 @@ export const generarHorarios = (
     }
   }
 
-  // Ordenar por puntuación (mayor es mejor) y limitar
-  return horariosValidos
-    .sort((a, b) => b.puntuacion - a.puntuacion)
-    .slice(0, CONFIG.MAX_HORARIOS_GENERADOS);
+  // Ordenar por puntuación y seleccionar variedad
+  const ordenados = horariosValidos.sort((a, b) => b.puntuacion - a.puntuacion);
+  
+  // Seleccionar horarios variados: algunos mejores, algunos medios, algunos bajos
+  const maxHorarios = Math.min(10, ordenados.length);
+  if (ordenados.length <= maxHorarios) {
+    return ordenados;
+  }
+  
+  // Tomar horarios distribuidos: 4 mejores, 3 medios, 3 peores
+  const seleccionados: Horario[] = [];
+  const mejores = Math.min(4, ordenados.length);
+  const medios = Math.min(3, Math.floor((ordenados.length - mejores) / 2));
+  const peores = Math.min(3, ordenados.length - mejores - medios);
+  
+  // Mejores
+  for (let i = 0; i < mejores; i++) {
+    seleccionados.push(ordenados[i]);
+  }
+  
+  // Medios (del centro)
+  const inicioMedios = Math.floor(ordenados.length / 3);
+  for (let i = 0; i < medios && inicioMedios + i < ordenados.length; i++) {
+    if (!seleccionados.includes(ordenados[inicioMedios + i])) {
+      seleccionados.push(ordenados[inicioMedios + i]);
+    }
+  }
+  
+  // Peores (del final)
+  for (let i = 0; i < peores; i++) {
+    const idx = ordenados.length - 1 - i;
+    if (idx >= 0 && !seleccionados.includes(ordenados[idx])) {
+      seleccionados.push(ordenados[idx]);
+    }
+  }
+  
+  // Ordenar resultado final por puntuacion
+  return seleccionados.sort((a, b) => b.puntuacion - a.puntuacion).slice(0, 10);
 };
 
 /**

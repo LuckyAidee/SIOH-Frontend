@@ -9,13 +9,14 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
+  SectionList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/constants/colors';
 import { useMateriasStore } from '@/src/stores/useMateriasStore';
+import { useConfigStore } from '@/src/stores/useConfigStore';
 import { useHorariosStore } from '@/src/stores/useHorariosStore';
-import { MateriaCard } from '@/src/components/MateriaCard';
 import { GrupoSelector } from '@/src/components/GrupoSelector';
 import { LoadingIndicator } from '@/src/components/LoadingIndicator';
 import { generarHorarios } from '@/src/services/OptimizerService';
@@ -38,12 +39,33 @@ export default function SelectMateriasScreen() {
     obtenerMateriasSeleccionadas,
   } = useMateriasStore();
 
+  const { obtenerCarreraNombre, turno, semestresSeleccionados, tipoEstudiante } = useConfigStore();
+
   const { setHorariosGenerados } = useHorariosStore();
 
   const materiasSeleccionadas = useMemo(() => 
     obtenerMateriasSeleccionadas(),
     [materiasSeleccionadasIds, materias]
   );
+
+  // Agrupar materias por semestre para SectionList
+  const secciones = useMemo(() => {
+    const porSemestre: Record<number, Materia[]> = {};
+    
+    materias.forEach(materia => {
+      if (!porSemestre[materia.semestre]) {
+        porSemestre[materia.semestre] = [];
+      }
+      porSemestre[materia.semestre].push(materia);
+    });
+    
+    return Object.entries(porSemestre)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([semestre, data]) => ({
+        title: `Semestre ${semestre}`,
+        data,
+      }));
+  }, [materias]);
 
   const handleGenerarHorarios = async () => {
     if (materiasSeleccionadas.length === 0) {
@@ -66,7 +88,7 @@ export default function SelectMateriasScreen() {
       const horarios = generarHorarios(gruposPorMateria, gruposFijadosIds);
 
       if (horarios.length === 0) {
-        alert('No se encontraron horarios válidos sin traslapes. Intenta con otras materias o fija menos grupos.');
+        alert('No se encontraron horarios válidos. Esto puede ocurrir porque:\n\n• Solo hay un grupo por materia y tienen horarios que se traslapan\n• Los datos de horarios están incompletos\n\nIntenta seleccionar menos materias o materias de diferentes semestres.');
         setIsGenerando(false);
         return;
       }
@@ -89,13 +111,53 @@ export default function SelectMateriasScreen() {
     }
   };
 
-  const renderMateria = ({ item }: { item: Materia }) => (
-    <MateriaCard
-      materia={item}
-      seleccionada={esMateriaSeleccionada(item.id)}
-      onPress={() => toggleMateria(item.id)}
-      onVerGrupos={() => setMateriaGrupos(item)}
-    />
+  const renderMateria = ({ item }: { item: Materia }) => {
+    const seleccionada = esMateriaSeleccionada(item.id);
+    const grupos = obtenerGruposDeMateria(item.id);
+    
+    return (
+      <TouchableOpacity
+        style={[styles.materiaCard, seleccionada && styles.materiaCardSelected]}
+        onPress={() => toggleMateria(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.materiaContent}>
+          <View style={styles.materiaInfo}>
+            <Text style={[styles.materiaNombre, seleccionada && styles.materiaNombreSelected]} numberOfLines={2}>
+              {item.nombre}
+            </Text>
+            <Text style={styles.materiaGrupos}>
+              {grupos.length} grupo{grupos.length !== 1 ? 's' : ''} disponible{grupos.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          
+          <View style={styles.materiaActions}>
+            {seleccionada && (
+              <TouchableOpacity
+                style={styles.verGruposBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setMateriaGrupos(item);
+                }}
+              >
+                <Ionicons name="list-outline" size={16} color={Colors.light.primary} />
+                <Text style={styles.verGruposText}>Ver grupos</Text>
+              </TouchableOpacity>
+            )}
+            
+            <View style={[styles.checkbox, seleccionada && styles.checkboxSelected]}>
+              {seleccionada && <Ionicons name="checkmark" size={16} color="#FFF" />}
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+    </View>
   );
 
   const gruposDeMateria = materiaGrupos ? obtenerGruposDeMateria(materiaGrupos.id) : [];
@@ -110,23 +172,46 @@ export default function SelectMateriasScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header con contador */}
+      {/* Header con info de configuración */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Selecciona tus materias</Text>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerCarrera} numberOfLines={1}>
+            {obtenerCarreraNombre()}
+          </Text>
+          <View style={styles.headerTags}>
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>
+                {turno === 'matutino' ? 'Matutino' : 'Vespertino'}
+              </Text>
+            </View>
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>
+                {tipoEstudiante === 'regular' ? 'Regular' : 'Irregular'}
+              </Text>
+            </View>
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>
+                Sem. {semestresSeleccionados.join(', ')}
+              </Text>
+            </View>
+          </View>
+        </View>
         <View style={styles.contador}>
           <Text style={styles.contadorTexto}>
-            {materiasSeleccionadas.length} seleccionadas
+            {materiasSeleccionadas.length} / {materias.length}
           </Text>
         </View>
       </View>
 
-      {/* Lista de materias */}
-      <FlatList
-        data={materias}
+      {/* Lista de materias por semestre */}
+      <SectionList
+        sections={secciones}
         keyExtractor={(item) => item.id}
         renderItem={renderMateria}
+        renderSectionHeader={renderSectionHeader}
         contentContainerStyle={styles.lista}
         showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={true}
       />
 
       {/* Botón generar */}
@@ -155,10 +240,10 @@ export default function SelectMateriasScreen() {
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.modalTitulo}>{materiaGrupos?.nombre}</Text>
+            <View style={styles.modalHeaderInfo}>
+              <Text style={styles.modalTitulo} numberOfLines={2}>{materiaGrupos?.nombre}</Text>
               <Text style={styles.modalSubtitulo}>
-                Fija un grupo si tienes preferencia
+                Fija un grupo si tienes preferencia por un profesor
               </Text>
             </View>
             <TouchableOpacity onPress={() => setMateriaGrupos(null)}>
@@ -193,16 +278,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
     backgroundColor: Colors.light.surface,
   },
-  headerTitle: {
-    fontSize: 18,
+  headerInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  headerCarrera: {
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.light.text,
+    marginBottom: 6,
+  },
+  headerTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tag: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tagText: {
+    fontSize: 11,
+    color: Colors.light.primary,
+    fontWeight: '500',
   },
   contador: {
     backgroundColor: Colors.light.primary,
@@ -215,9 +321,85 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  sectionHeader: {
+    backgroundColor: Colors.light.background,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.primary,
+  },
   lista: {
-    padding: 16,
     paddingBottom: 100,
+  },
+  materiaCard: {
+    backgroundColor: Colors.light.surface,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+  },
+  materiaCardSelected: {
+    borderColor: Colors.light.primary,
+    backgroundColor: '#F0F7FF',
+  },
+  materiaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  materiaInfo: {
+    flex: 1,
+  },
+  materiaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  materiaNombreSelected: {
+    color: Colors.light.primary,
+  },
+  materiaGrupos: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  materiaActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  verGruposBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  verGruposText: {
+    fontSize: 12,
+    color: Colors.light.primary,
+    fontWeight: '500',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
   },
   footer: {
     position: 'absolute',
@@ -253,11 +435,15 @@ const styles = StyleSheet.create({
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
     backgroundColor: Colors.light.surface,
+  },
+  modalHeaderInfo: {
+    flex: 1,
+    marginRight: 12,
   },
   modalTitulo: {
     fontSize: 18,
@@ -267,7 +453,7 @@ const styles = StyleSheet.create({
   modalSubtitulo: {
     fontSize: 13,
     color: Colors.light.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
   modalLista: {
     padding: 16,
