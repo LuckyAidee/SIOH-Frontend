@@ -146,7 +146,7 @@ export const useConfigStore = create<ConfigState>()(
           // Regular: hasta 2 semestres consecutivos hacia adelante
           if (permitirAmbosTurnos) {
             // Mantener solo los primeros 2 semestres consecutivos (pueden estar en diferentes turnos)
-            const todosOrdenados: { turno: Turno; semestre: number }[] = [];
+            const todosOrdenados: { turno: Turno; semestre: Semestre }[] = [];
             semestresPorTurno.matutino.forEach(s => todosOrdenados.push({ turno: 'matutino', semestre: s }));
             semestresPorTurno.vespertino.forEach(s => todosOrdenados.push({ turno: 'vespertino', semestre: s }));
             todosOrdenados.sort((a, b) => a.semestre - b.semestre);

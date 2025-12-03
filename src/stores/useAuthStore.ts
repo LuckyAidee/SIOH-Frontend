@@ -1,19 +1,25 @@
-// Store para autenticación local de usuarios
+// Store para autenticación de usuarios (híbrido: backend + fallback local)
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, CarreraId, CARRERAS } from '../types';
+import { apiService } from '../services/ApiService';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  useBackend: boolean; // Flag para usar backend o local
   
   // Acciones
   login: (email: string, password: string) => Promise<boolean>;
   register: (nombre: string, email: string, password: string, carrera: CarreraId) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<Pick<User, 'nombre' | 'carrera'>>) => void;
+  checkBackendConnection: () => Promise<boolean>;
+  clearError: () => void;
   
   // Para almacenar usuarios registrados (local)
   registeredUsers: Array<{ email: string; password: string; user: User }>;
@@ -27,37 +33,117 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      useBackend: false, // Por defecto usa local
       registeredUsers: [],
       
-      // Login
+      // Verificar conexión con backend
+      checkBackendConnection: async () => {
+        try {
+          const response = await apiService.healthCheck();
+          const connected = response.status === 200;
+          set({ useBackend: connected });
+          return connected;
+        } catch {
+          set({ useBackend: false });
+          return false;
+        }
+      },
+      
+      // Login (intenta backend, fallback a local)
       login: async (email, password) => {
-        const { registeredUsers } = get();
+        const { useBackend, registeredUsers } = get();
+        set({ isLoading: true, error: null });
         
+        if (useBackend) {
+          try {
+            const response = await apiService.login(email, password);
+            
+            if (response.data?.usuario) {
+              const user: User = {
+                id: response.data.usuario.id.toString(),
+                nombre: response.data.usuario.nombre,
+                email: response.data.usuario.email,
+                carrera: null as any, // El backend no tiene carrera
+                creadoEn: new Date(),
+              };
+              set({ user, isAuthenticated: true, isLoading: false });
+              return true;
+            }
+            
+            if (response.error) {
+              set({ error: response.error, isLoading: false });
+            }
+          } catch (error) {
+            console.log('Backend no disponible, usando local');
+          }
+        }
+        
+        // Fallback a autenticación local
         const found = registeredUsers.find(
           u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
         );
         
         if (found) {
-          set({
-            user: found.user,
-            isAuthenticated: true,
-          });
+          set({ user: found.user, isAuthenticated: true, isLoading: false });
           return true;
         }
         
+        set({ 
+          error: 'Credenciales incorrectas', 
+          isLoading: false 
+        });
         return false;
       },
       
-      // Registro
+      // Registro (intenta backend, fallback a local)
       register: async (nombre, email, password, carrera) => {
-        const { registeredUsers } = get();
+        const { useBackend, registeredUsers } = get();
+        set({ isLoading: true, error: null });
         
-        // Verificar si ya existe
+        if (useBackend) {
+          try {
+            const response = await apiService.register(email, password, nombre);
+            
+            if (response.data?.usuario) {
+              const user: User = {
+                id: response.data.usuario.id.toString(),
+                nombre: response.data.usuario.nombre,
+                email: response.data.usuario.email,
+                carrera,
+                creadoEn: new Date(),
+              };
+              
+              // Guardar también localmente para tener backup
+              set({
+                registeredUsers: [
+                  ...registeredUsers,
+                  { email, password, user },
+                ],
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+              return true;
+            }
+            
+            if (response.error) {
+              set({ error: response.error, isLoading: false });
+              return false;
+            }
+          } catch (error) {
+            console.log('Backend no disponible, usando local');
+          }
+        }
+        
+        // Fallback a registro local
         const exists = registeredUsers.some(
           u => u.email.toLowerCase() === email.toLowerCase()
         );
         
         if (exists) {
+          set({ error: 'El email ya está registrado', isLoading: false });
           return false;
         }
         
@@ -76,6 +162,7 @@ export const useAuthStore = create<AuthState>()(
           ],
           user: newUser,
           isAuthenticated: true,
+          isLoading: false,
         });
         
         return true;
@@ -83,9 +170,14 @@ export const useAuthStore = create<AuthState>()(
       
       // Logout
       logout: () => {
+        const { useBackend } = get();
+        if (useBackend) {
+          apiService.logout().catch(() => {});
+        }
         set({
           user: null,
           isAuthenticated: false,
+          error: null,
         });
       },
       
@@ -109,10 +201,19 @@ export const useAuthStore = create<AuthState>()(
           registeredUsers: updatedRegistered,
         });
       },
+      
+      // Limpiar error
+      clearError: () => {
+        set({ error: null });
+      },
     }),
     {
       name: 'sioh-auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        registeredUsers: state.registeredUsers,
+        useBackend: state.useBackend,
+      }),
     }
   )
 );

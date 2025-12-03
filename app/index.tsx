@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/constants/colors';
 import { useHorariosStore } from '@/src/stores/useHorariosStore';
 import { useAuthStore } from '@/src/stores/useAuthStore';
+import { BackendStatus } from '@/src/components';
 import { CARRERAS } from '@/src/types';
 
 export default function HomeScreen() {
@@ -25,6 +26,7 @@ export default function HomeScreen() {
             {CARRERAS.find(c => c.id === user?.carrera)?.abreviatura || ''}
           </Text>
         </View>
+        <BackendStatus />
         <TouchableOpacity 
           style={styles.profileBtn}
           onPress={() => router.push('/profile' as never)}

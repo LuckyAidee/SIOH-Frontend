@@ -2,3 +2,4 @@
 export * from './StorageService';
 export * from './OptimizerService';
 export * from './NotificationService';
+export * from './ApiService';
